@@ -1,6 +1,22 @@
 (function () {
   const BUTTON_ID = "yptc-copy-btn";
   let lastUrl = "";
+  let guardActive = false;
+
+  function injectPageGuard() {
+    if (document.getElementById("__yptc_guard")) return;
+    const s = document.createElement("script");
+    s.id = "__yptc_guard";
+    s.textContent = `
+      document.addEventListener("click", function(e) {
+        if (e.target.closest && e.target.closest("#${BUTTON_ID}")) {
+          e.stopPropagation();
+        }
+      }, true);
+    `;
+    (document.head || document.documentElement).appendChild(s);
+    s.remove();
+  }
 
   function waitForEl(selectors, timeout = 8000) {
     return new Promise((resolve) => {
@@ -22,91 +38,110 @@
     });
   }
 
-  function findMenuRenderer() {
+  function findMoreBtnShape() {
     return document.querySelector(
-      "ytd-watch-metadata ytd-menu-renderer," +
-      "#above-the-fold ytd-menu-renderer"
+      "ytd-menu-renderer yt-button-shape#button-shape"
     );
   }
 
   async function addButton() {
     if (document.getElementById(BUTTON_ID)) return;
 
-    const menuRenderer = await waitForEl([
-      "ytd-watch-metadata ytd-menu-renderer",
-      "#above-the-fold ytd-menu-renderer",
+    injectPageGuard();
+
+    const moreShape = await waitForEl([
+      "ytd-menu-renderer yt-button-shape#button-shape",
     ]);
 
-    if (!menuRenderer || document.getElementById(BUTTON_ID)) return;
+    if (!moreShape || document.getElementById(BUTTON_ID)) return;
 
+    const container = moreShape.closest("#top-level-buttons-computed");
+    if (!container) return;
+
+    const refBtn = moreShape.querySelector("button");
     const shape = document.createElement("yt-button-shape");
     shape.setAttribute("role", "button");
     shape.setAttribute("aria-label", "Copy transcript");
 
     const btn = document.createElement("button");
     btn.id = BUTTON_ID;
-    btn.className = "yptc-btn yt-spec-button-shape-next yt-spec-button-shape-next--icon-button yt-spec-button-shape-next--size-m";
+    btn.className = refBtn
+      ? refBtn.className
+      : "ytSpecButtonShapeNextHost ytSpecButtonShapeNextTonal ytSpecButtonShapeNextMono ytSpecButtonShapeNextSizeM ytSpecButtonShapeNextIconButton ytSpecButtonShapeNextEnableBackdropFilterExperiment ytSpecButtonShapeNextMainstageIconSize ytSpecButtonShapeNextMainstagePadding";
     btn.title = "Copy transcript";
     btn.setAttribute("aria-label", "Copy transcript");
     btn.setAttribute("aria-expanded", "false");
-    btn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>`;
+    btn.setAttribute("aria-disabled", "false");
+    btn.innerHTML =
+      '<div aria-hidden="true" class="ytSpecButtonShapeNextIcon ytSpecButtonShapeNextElevatedContent">' +
+        '<span class="ytIconWrapperHost" style="width:24px;height:24px;">' +
+          '<span class="yt-icon-shape ytSpecIconShapeHost">' +
+            '<div style="width:100%;height:100%;display:block;fill:currentColor;">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events:none;display:inherit;width:100%;height:100%;">' +
+                '<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"></path>' +
+              '</svg>' +
+            '</div>' +
+          '</span>' +
+        '</span>' +
+      '</div>';
 
     const touch = document.createElement("yt-touch-feedback-shape");
     touch.setAttribute("aria-hidden", "true");
-    touch.className = "yt-spec-touch-feedback-shape yt-spec-touch-feedback-shape--overlay";
-    const stroke = document.createElement("div");
-    stroke.className = "yt-spec-touch-feedback-shape--stroke";
-    const fill = document.createElement("div");
-    fill.className = "yt-spec-touch-feedback-shape--fill";
-    touch.appendChild(stroke);
-    touch.appendChild(fill);
+    touch.className =
+      "ytSpecTouchFeedbackShapeHost ytSpecTouchFeedbackShapeTouchResponse";
+    touch.innerHTML =
+      '<div class="ytSpecTouchFeedbackShapeStroke"></div>' +
+      '<div class="ytSpecTouchFeedbackShapeFill"></div>';
     shape.appendChild(btn);
     shape.appendChild(touch);
 
     btn.addEventListener("click", handleCopy, true);
 
-    menuRenderer.parentElement.insertBefore(shape, menuRenderer);
+    container.insertBefore(shape, moreShape);
   }
 
-  async function openTranscriptPanel() {
+  async function openTranscript() {
     const expanded = document.querySelector(
       'ytd-engagement-panel-section-list-renderer' +
-      '[target-id="engagement-panel-searchable-transcript"]' +
-      '[visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"]'
+        '[target-id="engagement-panel-searchable-transcript"]' +
+        '[visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"]'
     );
     if (expanded) return true;
 
-    const menuBtn = document.querySelector(
-      "ytd-watch-metadata #menu ytd-menu-renderer yt-button-shape button," +
-      "ytd-watch-metadata #menu button[aria-label*='More']," +
-      "ytd-watch-metadata #menu ytd-menu-renderer button"
+    let showBtn = document.querySelector(
+      'button[aria-label="Show transcript"],' +
+        'button[aria-label="show transcript"]'
     );
 
-    if (!menuBtn) return false;
-
-    menuBtn.click();
-    await new Promise((r) => setTimeout(r, 600));
-
-    const items = document.querySelectorAll(
-      "ytd-menu-popup-renderer tp-yt-paper-item," +
-      "tp-yt-paper-listbox tp-yt-paper-item," +
-      "ytd-popup-container ytd-menu-service-item-renderer"
-    );
-
-    for (const item of items) {
-      if (/transcript/i.test(item.textContent || "")) {
-        item.click();
-        await new Promise((r) => setTimeout(r, 1200));
-        return true;
+    if (!showBtn) {
+      const expandBtn =
+        document.querySelector("tp-yt-paper-button#expand") ||
+        document.querySelector(
+          "#description-inline-expander tp-yt-paper-button#expand"
+        ) ||
+        document.querySelector('ytd-text-inline-expander #expand');
+      if (expandBtn) {
+        expandBtn.click();
+        await new Promise((r) => setTimeout(r, 600));
       }
+      showBtn = document.querySelector(
+        'button[aria-label="Show transcript"],' +
+          'button[aria-label="show transcript"]'
+      );
     }
 
-    document.body.click();
+    if (showBtn) {
+      showBtn.click();
+      await new Promise((r) => setTimeout(r, 1500));
+      return true;
+    }
+
     return false;
   }
 
   async function scrapeTranscript() {
-    const segments = document.querySelectorAll("transcript-segment-view-model");
+    const segments =
+      document.querySelectorAll("transcript-segment-view-model");
     if (segments.length === 0) return null;
 
     const lines = [];
@@ -133,9 +168,9 @@
     let text = await scrapeTranscript();
 
     if (!text) {
-      const opened = await openTranscriptPanel();
+      const opened = await openTranscript();
       if (opened) {
-        for (let i = 0; i < 25; i++) {
+        for (let i = 0; i < 30; i++) {
           await new Promise((r) => setTimeout(r, 300));
           text = await scrapeTranscript();
           if (text) break;
@@ -146,10 +181,12 @@
     btn.classList.remove("yptc-loading");
 
     if (text) {
-      navigator.clipboard.writeText(text).then(
-        () => showFeedback(btn, "ok"),
-        () => fallbackCopy(btn, text)
-      );
+      navigator.clipboard
+        .writeText(text)
+        .then(
+          () => showFeedback(btn, "ok"),
+          () => fallbackCopy(btn, text)
+        );
     } else {
       showFeedback(btn, "fail");
     }
