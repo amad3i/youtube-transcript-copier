@@ -1,45 +1,27 @@
-.yptc-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+#yptc-copy-btn.yptc-btn {
   width: 36px;
   height: 36px;
   padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  cursor: pointer;
-  transition: background 0.2s;
-  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.yptc-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.yptc-btn:active {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.yptc-btn svg {
+#yptc-copy-btn.yptc-btn svg {
   width: 20px;
   height: 20px;
-}
-
-.yptc-btn.yptc-loading {
-  opacity: 0.5;
   pointer-events: none;
 }
 
-.yptc-btn.yptc-ok {
-  background: rgba(36, 161, 72, 0.85);
+#yptc-copy-btn.yptc-loading {
+  opacity: 0.4;
+  pointer-events: none;
 }
 
-.yptc-btn.yptc-ok:hover {
-  background: rgba(36, 161, 72, 0.95);
+#yptc-copy-btn.yptc-ok {
+  color: #2ba640 !important;
 }
 
-.yptc-btn.yptc-fail {
-  background: rgba(220, 38, 38, 0.85);
+#yptc-copy-btn.yptc-fail {
+  color: #cc2936 !important;
 }
