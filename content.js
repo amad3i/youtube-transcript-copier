@@ -5,19 +5,15 @@
   function addButton() {
     if (document.getElementById(BID)) return;
 
-    var subBtn = document.querySelector(
-      'ytd-subscribe-button-renderer button,' +
-      'ytd-subscribe-button-renderer yt-button-shape button,' +
-      'button[aria-label*="ubscribe"]'
-    );
-    if (!subBtn) return;
+    var sub = document.querySelector("ytd-subscribe-button-renderer");
+    if (!sub) return;
 
     var btn = document.createElement("button");
     btn.id = BID;
     btn.title = "Copy transcript";
     btn.setAttribute("aria-label", "Copy transcript");
     btn.innerHTML =
-      '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:block;margin:auto;">' +
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">' +
       '<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>' +
       "</svg>";
 
@@ -26,24 +22,7 @@
       doCopy(btn);
     });
 
-    document.body.appendChild(btn);
-    positionBtn(btn);
-  }
-
-  function positionBtn(btn) {
-    var subBtn = document.querySelector(
-      'ytd-subscribe-button-renderer button,' +
-      'ytd-subscribe-button-renderer yt-button-shape button,' +
-      'button[aria-label*="ubscribe"]'
-    );
-    if (!subBtn) return;
-    var r = subBtn.getBoundingClientRect();
-    var size = r.height;
-    var gap = 12;
-    btn.style.width = size + "px";
-    btn.style.height = size + "px";
-    btn.style.left = (r.right + gap) + "px";
-    btn.style.top = r.top + "px";
+    sub.parentElement.insertBefore(btn, sub.nextSibling);
   }
 
   function openTranscript() {
@@ -165,21 +144,6 @@
       }
     }
   }
-
-  var rafPending = false;
-
-  function scheduleReposition() {
-    if (rafPending) return;
-    rafPending = true;
-    requestAnimationFrame(function () {
-      rafPending = false;
-      var btn = document.getElementById(BID);
-      if (btn) positionBtn(btn);
-    });
-  }
-
-  window.addEventListener("scroll", scheduleReposition, { passive: true });
-  window.addEventListener("resize", scheduleReposition);
 
   checkUrl();
   new MutationObserver(checkUrl).observe(document.body, { childList: true, subtree: true });

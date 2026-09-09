@@ -1,6 +1,7 @@
 #yptc-copy-btn {
-  position: fixed;
-  z-index: 99999;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 36px;
   height: 36px;
   border: none;
@@ -8,16 +9,11 @@
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   padding: 0;
-  margin: 0;
-  box-sizing: border-box;
+  margin-left: 8px;
+  flex-shrink: 0;
+  vertical-align: middle;
   transition: background 0.15s;
-  pointer-events: auto;
-  line-height: 0;
-  font-size: 0;
 }
 
 #yptc-copy-btn:hover {
@@ -29,8 +25,8 @@
 }
 
 #yptc-copy-btn svg {
-  width: 55%;
-  height: 55%;
+  width: 20px;
+  height: 20px;
   pointer-events: none;
   flex-shrink: 0;
 }
