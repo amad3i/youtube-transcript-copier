@@ -166,20 +166,20 @@
     }
   }
 
-  window.addEventListener("scroll", function () {
-    var btn = document.getElementById(BID);
-    if (btn) positionBtn(btn);
-  }, { passive: true });
+  var rafPending = false;
 
-  window.addEventListener("resize", function () {
-    var btn = document.getElementById(BID);
-    if (btn) positionBtn(btn);
-  });
+  function scheduleReposition() {
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(function () {
+      rafPending = false;
+      var btn = document.getElementById(BID);
+      if (btn) positionBtn(btn);
+    });
+  }
 
-  setInterval(function () {
-    var btn = document.getElementById(BID);
-    if (btn) positionBtn(btn);
-  }, 1000);
+  window.addEventListener("scroll", scheduleReposition, { passive: true });
+  window.addEventListener("resize", scheduleReposition);
 
   checkUrl();
   new MutationObserver(checkUrl).observe(document.body, { childList: true, subtree: true });
