@@ -22,7 +22,11 @@
       doCopy(btn);
     });
 
-    sub.parentElement.insertBefore(btn, sub.nextSibling);
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "display:inline-flex;align-items:center;gap:8px;vertical-align:middle;";
+    sub.parentElement.insertBefore(wrap, sub);
+    wrap.appendChild(sub);
+    wrap.appendChild(btn);
   }
 
   function openTranscript() {
@@ -138,7 +142,16 @@
     if (url !== lastUrl) {
       lastUrl = url;
       var old = document.getElementById(BID);
-      if (old) old.remove();
+      if (old) {
+        var wrap = old.parentElement;
+        if (wrap && wrap.style.display === "inline-flex") {
+          var sub = wrap.querySelector("ytd-subscribe-button-renderer");
+          if (sub) wrap.parentElement.insertBefore(sub, wrap);
+          wrap.remove();
+        } else {
+          old.remove();
+        }
+      }
       if (url.includes("/watch")) {
         setTimeout(addButton, 2000);
       }
