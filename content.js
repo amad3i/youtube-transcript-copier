@@ -5,12 +5,12 @@
   function addButton() {
     if (document.getElementById(BID)) return;
 
-    var moreBtn = document.querySelector(
-      'ytd-menu-renderer yt-button-shape#button-shape button'
+    var subBtn = document.querySelector(
+      'ytd-subscribe-button-renderer button,' +
+      'ytd-subscribe-button-renderer yt-button-shape button,' +
+      'button[aria-label*="ubscribe"]'
     );
-    if (!moreBtn) return;
-
-    var rect = moreBtn.getBoundingClientRect();
+    if (!subBtn) return;
 
     var btn = document.createElement("button");
     btn.id = BID;
@@ -26,22 +26,20 @@
       doCopy(btn);
     });
 
-    btn.addEventListener("mouseenter", function () {
-      positionBtn(btn);
-    });
-
     document.body.appendChild(btn);
     positionBtn(btn);
   }
 
   function positionBtn(btn) {
-    var moreBtn = document.querySelector(
-      'ytd-menu-renderer yt-button-shape#button-shape button'
+    var subBtn = document.querySelector(
+      'ytd-subscribe-button-renderer button,' +
+      'ytd-subscribe-button-renderer yt-button-shape button,' +
+      'button[aria-label*="ubscribe"]'
     );
-    if (!moreBtn) return;
-    var r = moreBtn.getBoundingClientRect();
-    var gap = 2;
-    btn.style.left = (r.left - 36 - gap) + "px";
+    if (!subBtn) return;
+    var r = subBtn.getBoundingClientRect();
+    var gap = 8;
+    btn.style.left = (r.right + gap) + "px";
     btn.style.top = (r.top + (r.height - 36) / 2) + "px";
   }
 
