@@ -24,10 +24,13 @@
 }
 
 #yptc-copy-btn svg {
-  width: 20px;
-  height: 20px;
+  display: block;
+  width: 18px;
+  height: 18px;
   pointer-events: none;
   flex-shrink: 0;
+  margin: 0;
+  padding: 0;
 }
 
 #yptc-copy-btn.yptc-loading {
