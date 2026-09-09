@@ -88,6 +88,7 @@
 
     var text = scrapeTranscript();
     if (text) {
+      btn.classList.remove("yptc-loading");
       finishCopy(btn, text);
       return;
     }
