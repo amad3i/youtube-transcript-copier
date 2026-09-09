@@ -1,47 +1,45 @@
-.yptc-copy-btn {
+.yptc-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 12px;
+  justify-content: center;
+  width: 36px;
   height: 36px;
+  padding: 0;
   border: none;
-  border-radius: 18px;
+  border-radius: 50%;
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
-  font-size: 14px;
-  font-family: "Roboto", "Arial", sans-serif;
   cursor: pointer;
   transition: background 0.2s;
-  white-space: nowrap;
-}
-
-.yptc-copy-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.yptc-copy-btn:active {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.yptc-copy-btn svg {
-  width: 16px;
-  height: 16px;
   flex-shrink: 0;
 }
 
-.yptc-copy-btn.yptc-loading {
-  opacity: 0.6;
+.yptc-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.yptc-btn:active {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.yptc-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.yptc-btn.yptc-loading {
+  opacity: 0.5;
   pointer-events: none;
 }
 
-.yptc-copy-btn.yptc-success {
-  background: rgba(36, 161, 72, 0.8);
+.yptc-btn.yptc-ok {
+  background: rgba(36, 161, 72, 0.85);
 }
 
-.yptc-copy-btn.yptc-success:hover {
-  background: rgba(36, 161, 72, 0.9);
+.yptc-btn.yptc-ok:hover {
+  background: rgba(36, 161, 72, 0.95);
 }
 
-.yptc-copy-btn.yptc-error {
-  background: rgba(220, 38, 38, 0.8);
+.yptc-btn.yptc-fail {
+  background: rgba(220, 38, 38, 0.85);
 }

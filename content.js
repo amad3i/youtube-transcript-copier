@@ -2,27 +2,9 @@
   const BUTTON_ID = "yptc-copy-btn";
   let lastUrl = "";
 
-  function injectScript() {
-    if (!document.getElementById("__yptc_inject")) {
-      const script = document.createElement("script");
-      script.id = "__yptc_inject";
-      script.src = chrome.runtime.getURL("inject.js");
-      (document.head || document.documentElement).appendChild(script);
-    }
-  }
-
-  function waitForButtonTarget() {
+  function waitForEl(selectors, timeout = 8000) {
     return new Promise((resolve) => {
-      const selectors = [
-        "#above-the-fold #top-row",
-        "#above-the-fold ytd-watch-metadata #actions-inner",
-        "ytd-watch-metadata #actions ytd-menu-renderer #button-container",
-        "#actions ytd-menu-renderer",
-        "#actions-inner",
-        "#top-row",
-      ];
-
-      function tryFind() {
+      function find() {
         for (const sel of selectors) {
           const el = document.querySelector(sel);
           if (el) return el;
@@ -30,11 +12,11 @@
         return null;
       }
 
-      const found = tryFind();
+      const found = find();
       if (found) return resolve(found);
 
       const observer = new MutationObserver(() => {
-        const el = tryFind();
+        const el = find();
         if (el) {
           observer.disconnect();
           resolve(el);
@@ -42,35 +24,101 @@
       });
 
       observer.observe(document.body, { childList: true, subtree: true });
-
       setTimeout(() => {
         observer.disconnect();
-        resolve(tryFind() || document.body);
-      }, 10000);
+        resolve(find() || null);
+      }, timeout);
     });
   }
 
-  async function addCopyButton() {
+  async function addButton() {
     if (document.getElementById(BUTTON_ID)) return;
 
-    injectScript();
+    const actionRow = await waitForEl([
+      "ytd-watch-metadata #actions-inner",
+      "#above-the-fold #actions-inner",
+      "#actions ytd-menu-renderer",
+      "#actions-inner",
+      "#top-row",
+    ]);
 
-    const target = await waitForButtonTarget();
-    if (document.getElementById(BUTTON_ID)) return;
+    if (!actionRow || document.getElementById(BUTTON_ID)) return;
 
     const btn = document.createElement("button");
     btn.id = BUTTON_ID;
-    btn.className = "yptc-copy-btn";
-    btn.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-      </svg>
-      <span>Copy Transcript</span>
-    `;
-
+    btn.className = "yptc-btn";
+    btn.title = "Copy transcript";
+    btn.setAttribute("aria-label", "Copy transcript");
+    btn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`;
     btn.addEventListener("click", handleCopy);
-    target.appendChild(btn);
+
+    actionRow.insertBefore(btn, actionRow.firstChild);
+  }
+
+  async function openTranscriptPanel() {
+    const isOpen = document.querySelector(
+      'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"][visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"],' +
+      'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"][state="engagement-panel-state-expanded"]'
+    );
+    if (isOpen) return true;
+
+    const menuBtn = document.querySelector(
+      'ytd-watch-metadata #menu ytd-menu-renderer yt-button-shape button,' +
+      'ytd-watch-metadata #menu button[aria-label*="More"],' +
+      '#actions #button-shape button[aria-label*="More"],' +
+      'ytd-watch-metadata #menu ytd-menu-renderer button'
+    );
+
+    if (!menuBtn) return false;
+
+    menuBtn.click();
+    await new Promise((r) => setTimeout(r, 500));
+
+    const items = document.querySelectorAll(
+      'ytd-menu-popup-renderer tp-yt-paper-item,' +
+      'tp-yt-paper-listbox tp-yt-paper-item,' +
+      'ytd-popup-container ytd-menu-service-item-renderer'
+    );
+
+    let transcriptBtn = null;
+    for (const item of items) {
+      if (/transcript/i.test(item.textContent || "")) {
+        transcriptBtn = item;
+        break;
+      }
+    }
+
+    if (transcriptBtn) {
+      transcriptBtn.click();
+      await new Promise((r) => setTimeout(r, 1000));
+      return true;
+    }
+
+    const closeBtn = document.querySelector(
+      'tp-yt-paper-dialog .yt-spec-touch-feedback-shape--overlay'
+    );
+    if (closeBtn) closeBtn.click();
+
+    return false;
+  }
+
+  async function scrapeTranscript() {
+    const segments = document.querySelectorAll(
+      "transcript-segment-view-model"
+    );
+
+    if (segments.length === 0) return null;
+
+    const lines = [];
+    for (const seg of segments) {
+      const textEl = seg.querySelector('span[role="text"]');
+      if (textEl) {
+        const text = textEl.textContent.trim();
+        if (text) lines.push(text);
+      }
+    }
+
+    return lines.length > 0 ? lines.join(" ") : null;
   }
 
   async function handleCopy(e) {
@@ -81,95 +129,76 @@
     if (!btn) return;
 
     btn.classList.add("yptc-loading");
-    btn.querySelector("span").textContent = "Loading...";
 
-    window.dispatchEvent(new CustomEvent("__YTTC_GET_TRANSCRIPT"));
+    let text = await scrapeTranscript();
 
-    window.addEventListener(
-      "__YTTC_TRANSCRIPT_RESULT",
-      function onResult(event) {
-        window.removeEventListener("__YTTC_TRANSCRIPT_RESULT", onResult);
-        btn.classList.remove("yptc-loading");
-
-        const result = event.detail;
-
-        if (result && result.error) {
-          btn.querySelector("span").textContent = "No transcript";
-          btn.classList.add("yptc-error");
-          setTimeout(() => {
-            btn.querySelector("span").textContent = "Copy Transcript";
-            btn.classList.remove("yptc-error");
-          }, 2000);
-          return;
-        }
-
-        if (result && result.text) {
-          navigator.clipboard.writeText(result.text).then(
-            () => {
-              btn.querySelector("span").textContent = "Copied!";
-              btn.classList.add("yptc-success");
-              setTimeout(() => {
-                btn.querySelector("span").textContent = "Copy Transcript";
-                btn.classList.remove("yptc-success");
-              }, 2000);
-            },
-            () => {
-              fallbackCopy(result.text);
-            }
-          );
+    if (!text) {
+      const opened = await openTranscriptPanel();
+      if (opened) {
+        for (let i = 0; i < 20; i++) {
+          await new Promise((r) => setTimeout(r, 300));
+          text = await scrapeTranscript();
+          if (text) break;
         }
       }
-    );
+    }
+
+    btn.classList.remove("yptc-loading");
+
+    if (text) {
+      navigator.clipboard.writeText(text).then(
+        () => showFeedback(btn, "ok"),
+        () => fallbackCopy(btn, text)
+      );
+    } else {
+      showFeedback(btn, "fail");
+    }
   }
 
-  function fallbackCopy(text) {
+  function fallbackCopy(btn, text) {
     const ta = document.createElement("textarea");
     ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.left = "-9999px";
+    ta.style.cssText = "position:fixed;left:-9999px";
     document.body.appendChild(ta);
     ta.select();
     try {
       document.execCommand("copy");
-      const btn = document.getElementById(BUTTON_ID);
-      if (btn) {
-        btn.querySelector("span").textContent = "Copied!";
-        btn.classList.add("yptc-success");
-        setTimeout(() => {
-          btn.querySelector("span").textContent = "Copy Transcript";
-          btn.classList.remove("yptc-success");
-        }, 2000);
-      }
-    } catch (err) {
-      const btn = document.getElementById(BUTTON_ID);
-      if (btn) {
-        btn.querySelector("span").textContent = "Failed";
-        btn.classList.add("yptc-error");
-        setTimeout(() => {
-          btn.querySelector("span").textContent = "Copy Transcript";
-          btn.classList.remove("yptc-error");
-        }, 2000);
-      }
+      showFeedback(btn, "ok");
+    } catch {
+      showFeedback(btn, "fail");
     }
     document.body.removeChild(ta);
   }
 
+  function showFeedback(btn, type) {
+    if (type === "ok") {
+      btn.classList.add("yptc-ok");
+      setTimeout(() => btn.classList.remove("yptc-ok"), 2000);
+    } else {
+      btn.classList.add("yptc-fail");
+      btn.title = "No transcript available";
+      setTimeout(() => {
+        btn.classList.remove("yptc-fail");
+        btn.title = "Copy transcript";
+      }, 2000);
+    }
+  }
+
   function checkUrl() {
-    const currentUrl = location.href;
-    if (currentUrl !== lastUrl) {
-      lastUrl = currentUrl;
-
-      const existing = document.getElementById(BUTTON_ID);
-      if (existing) existing.remove();
-
-      if (currentUrl.includes("/watch")) {
-        setTimeout(addCopyButton, 1500);
+    const url = location.href;
+    if (url !== lastUrl) {
+      lastUrl = url;
+      const old = document.getElementById(BUTTON_ID);
+      if (old) old.remove();
+      if (url.includes("/watch")) {
+        setTimeout(addButton, 1500);
       }
     }
   }
 
   checkUrl();
-
-  const observer = new MutationObserver(checkUrl);
-  observer.observe(document.body, { childList: true, subtree: true });
+  new MutationObserver(checkUrl).observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
 })();
