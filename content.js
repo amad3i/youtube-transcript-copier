@@ -17,7 +17,7 @@
     btn.title = "Copy transcript";
     btn.setAttribute("aria-label", "Copy transcript");
     btn.innerHTML =
-      '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">' +
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:block;margin:auto;">' +
       '<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>' +
       "</svg>";
 
@@ -38,9 +38,12 @@
     );
     if (!subBtn) return;
     var r = subBtn.getBoundingClientRect();
-    var gap = 8;
+    var size = r.height;
+    var gap = 12;
+    btn.style.width = size + "px";
+    btn.style.height = size + "px";
     btn.style.left = (r.right + gap) + "px";
-    btn.style.top = (r.top + (r.height - 36) / 2) + "px";
+    btn.style.top = r.top + "px";
   }
 
   function openTranscript() {

@@ -12,8 +12,12 @@
   align-items: center;
   justify-content: center;
   padding: 0;
+  margin: 0;
+  box-sizing: border-box;
   transition: background 0.15s;
   pointer-events: auto;
+  line-height: 0;
+  font-size: 0;
 }
 
 #yptc-copy-btn:hover {
@@ -25,9 +29,10 @@
 }
 
 #yptc-copy-btn svg {
-  width: 20px;
-  height: 20px;
+  width: 55%;
+  height: 55%;
   pointer-events: none;
+  flex-shrink: 0;
 }
 
 #yptc-copy-btn.yptc-loading {
