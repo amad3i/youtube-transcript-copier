@@ -1,245 +1,211 @@
 (function () {
-  const BUTTON_ID = "yptc-copy-btn";
-  let lastUrl = "";
-  let guardActive = false;
-
-  function injectPageGuard() {
-    if (document.getElementById("__yptc_guard")) return;
+  function injectMainWorld() {
+    if (document.getElementById("__yptc_main")) return;
     const s = document.createElement("script");
-    s.id = "__yptc_guard";
-    s.textContent = `
-      document.addEventListener("click", function(e) {
-        if (e.target.closest && e.target.closest("#${BUTTON_ID}")) {
-          e.stopPropagation();
-        }
-      }, true);
-    `;
+    s.id = "__yptc_main";
+    s.textContent = `(${mainWorldCode})();`;
     (document.head || document.documentElement).appendChild(s);
-    s.remove();
   }
 
-  function waitForEl(selectors, timeout = 8000) {
-    return new Promise((resolve) => {
-      function find() {
-        for (const sel of selectors) {
-          const el = document.querySelector(sel);
-          if (el) return el;
+  function mainWorldCode() {
+    const BID = "yptc-copy-btn";
+    let lastUrl = "";
+
+    function waitForEl(sels, ms) {
+      ms = ms || 8000;
+      return new Promise(function (res) {
+        function find() {
+          for (var i = 0; i < sels.length; i++) {
+            var el = document.querySelector(sels[i]);
+            if (el) return el;
+          }
+          return null;
         }
-        return null;
-      }
-      const found = find();
-      if (found) return resolve(found);
-      const observer = new MutationObserver(() => {
-        const el = find();
-        if (el) { observer.disconnect(); resolve(el); }
+        var f = find();
+        if (f) return res(f);
+        var obs = new MutationObserver(function () {
+          var el = find();
+          if (el) { obs.disconnect(); res(el); }
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+        setTimeout(function () { obs.disconnect(); res(find() || null); }, ms);
       });
-      observer.observe(document.body, { childList: true, subtree: true });
-      setTimeout(() => { observer.disconnect(); resolve(find() || null); }, timeout);
-    });
-  }
-
-  function findMoreBtnShape() {
-    return document.querySelector(
-      "ytd-menu-renderer yt-button-shape#button-shape"
-    );
-  }
-
-  async function addButton() {
-    if (document.getElementById(BUTTON_ID)) return;
-
-    injectPageGuard();
-
-    const moreShape = await waitForEl([
-      "ytd-menu-renderer yt-button-shape#button-shape",
-    ]);
-
-    if (!moreShape || document.getElementById(BUTTON_ID)) return;
-
-    const container = moreShape.closest("#top-level-buttons-computed");
-    if (!container) return;
-
-    const refBtn = moreShape.querySelector("button");
-    const shape = document.createElement("yt-button-shape");
-    shape.setAttribute("role", "button");
-    shape.setAttribute("aria-label", "Copy transcript");
-
-    const btn = document.createElement("button");
-    btn.id = BUTTON_ID;
-    btn.className = refBtn
-      ? refBtn.className
-      : "ytSpecButtonShapeNextHost ytSpecButtonShapeNextTonal ytSpecButtonShapeNextMono ytSpecButtonShapeNextSizeM ytSpecButtonShapeNextIconButton ytSpecButtonShapeNextEnableBackdropFilterExperiment ytSpecButtonShapeNextMainstageIconSize ytSpecButtonShapeNextMainstagePadding";
-    btn.title = "Copy transcript";
-    btn.setAttribute("aria-label", "Copy transcript");
-    btn.setAttribute("aria-expanded", "false");
-    btn.setAttribute("aria-disabled", "false");
-    btn.innerHTML =
-      '<div aria-hidden="true" class="ytSpecButtonShapeNextIcon ytSpecButtonShapeNextElevatedContent">' +
-        '<span class="ytIconWrapperHost" style="width:24px;height:24px;">' +
-          '<span class="yt-icon-shape ytSpecIconShapeHost">' +
-            '<div style="width:100%;height:100%;display:block;fill:currentColor;">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events:none;display:inherit;width:100%;height:100%;">' +
-                '<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"></path>' +
-              '</svg>' +
-            '</div>' +
-          '</span>' +
-        '</span>' +
-      '</div>';
-
-    const touch = document.createElement("yt-touch-feedback-shape");
-    touch.setAttribute("aria-hidden", "true");
-    touch.className =
-      "ytSpecTouchFeedbackShapeHost ytSpecTouchFeedbackShapeTouchResponse";
-    touch.innerHTML =
-      '<div class="ytSpecTouchFeedbackShapeStroke"></div>' +
-      '<div class="ytSpecTouchFeedbackShapeFill"></div>';
-    shape.appendChild(btn);
-    shape.appendChild(touch);
-
-    btn.addEventListener("click", handleCopy, true);
-
-    container.insertBefore(shape, moreShape);
-  }
-
-  async function openTranscript() {
-    const expanded = document.querySelector(
-      'ytd-engagement-panel-section-list-renderer' +
-        '[target-id="engagement-panel-searchable-transcript"]' +
-        '[visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"]'
-    );
-    if (expanded) return true;
-
-    let showBtn = document.querySelector(
-      'button[aria-label="Show transcript"],' +
-        'button[aria-label="show transcript"]'
-    );
-
-    if (!showBtn) {
-      const expandBtn =
-        document.querySelector("tp-yt-paper-button#expand") ||
-        document.querySelector(
-          "#description-inline-expander tp-yt-paper-button#expand"
-        ) ||
-        document.querySelector('ytd-text-inline-expander #expand');
-      if (expandBtn) {
-        expandBtn.click();
-        await new Promise((r) => setTimeout(r, 600));
-      }
-      showBtn = document.querySelector(
-        'button[aria-label="Show transcript"],' +
-          'button[aria-label="show transcript"]'
-      );
     }
 
-    if (showBtn) {
-      showBtn.click();
-      await new Promise((r) => setTimeout(r, 1500));
-      return true;
+    function addButton() {
+      if (document.getElementById(BID)) return;
+      waitForEl([
+        'ytd-menu-renderer yt-button-shape#button-shape',
+      ]).then(function (moreShape) {
+        if (!moreShape || document.getElementById(BID)) return;
+        var container = moreShape.closest("#top-level-buttons-computed");
+        if (!container) return;
+
+        var shape = document.createElement("yt-button-shape");
+        shape.setAttribute("role", "button");
+        shape.setAttribute("aria-label", "Copy transcript");
+
+        var btn = document.createElement("button");
+        btn.id = BID;
+        var ref = moreShape.querySelector("button");
+        btn.className = ref ? ref.className : "";
+        btn.title = "Copy transcript";
+        btn.setAttribute("aria-label", "Copy transcript");
+        btn.setAttribute("aria-expanded", "false");
+        btn.setAttribute("aria-disabled", "false");
+        btn.innerHTML =
+          '<div aria-hidden="true" class="ytSpecButtonShapeNextIcon ytSpecButtonShapeNextElevatedContent">' +
+            '<span class="ytIconWrapperHost" style="width:24px;height:24px;">' +
+              '<span class="yt-icon-shape ytSpecIconShapeHost">' +
+                '<div style="width:100%;height:100%;display:block;fill:currentColor;">' +
+                  '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events:none;display:inherit;width:100%;height:100%;">' +
+                    '<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"></path>' +
+                  '</svg>' +
+                '</div>' +
+              '</span>' +
+            '</span>' +
+          '</div>';
+
+        var touch = document.createElement("yt-touch-feedback-shape");
+        touch.setAttribute("aria-hidden", "true");
+        touch.className = "ytSpecTouchFeedbackShapeHost ytSpecTouchFeedbackShapeTouchResponse";
+        touch.innerHTML = '<div class="ytSpecTouchFeedbackShapeStroke"></div><div class="ytSpecTouchFeedbackShapeFill"></div>';
+        shape.appendChild(btn);
+        shape.appendChild(touch);
+
+        btn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          doCopy(btn);
+        }, true);
+
+        container.insertBefore(shape, moreShape);
+      });
     }
 
-    return false;
-  }
+    function openTranscript() {
+      return new Promise(function (res) {
+        var expanded = document.querySelector(
+          'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"][visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"]'
+        );
+        if (expanded) return res(true);
 
-  async function scrapeTranscript() {
-    const segments =
-      document.querySelectorAll("transcript-segment-view-model");
-    if (segments.length === 0) return null;
+        var showBtn = document.querySelector('button[aria-label="Show transcript"],button[aria-label="show transcript"]');
+        if (showBtn) {
+          showBtn.click();
+          return setTimeout(function () { res(true); }, 1500);
+        }
 
-    const lines = [];
-    for (const seg of segments) {
-      const textEl = seg.querySelector('span[role="text"]');
-      if (textEl) {
-        const text = textEl.textContent.trim();
-        if (text) lines.push(text);
-      }
+        var expandBtn = document.querySelector("tp-yt-paper-button#expand") ||
+          document.querySelector("#description-inline-expander tp-yt-paper-button#expand") ||
+          document.querySelector("ytd-text-inline-expander #expand");
+        if (expandBtn) {
+          expandBtn.click();
+          setTimeout(function () {
+            var btn2 = document.querySelector('button[aria-label="Show transcript"],button[aria-label="show transcript"]');
+            if (btn2) {
+              btn2.click();
+              setTimeout(function () { res(true); }, 1500);
+            } else {
+              res(false);
+            }
+          }, 600);
+        } else {
+          res(false);
+        }
+      });
     }
-    return lines.length > 0 ? lines.join(" ") : null;
-  }
 
-  async function handleCopy(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-
-    const btn = document.getElementById(BUTTON_ID);
-    if (!btn) return;
-
-    btn.classList.add("yptc-loading");
-
-    let text = await scrapeTranscript();
-
-    if (!text) {
-      const opened = await openTranscript();
-      if (opened) {
-        for (let i = 0; i < 30; i++) {
-          await new Promise((r) => setTimeout(r, 300));
-          text = await scrapeTranscript();
-          if (text) break;
+    function scrapeTranscript() {
+      var segs = document.querySelectorAll("transcript-segment-view-model");
+      if (segs.length === 0) return null;
+      var lines = [];
+      for (var i = 0; i < segs.length; i++) {
+        var t = segs[i].querySelector('span[role="text"]');
+        if (t) {
+          var txt = t.textContent.trim();
+          if (txt) lines.push(txt);
         }
       }
+      return lines.length > 0 ? lines.join(" ") : null;
     }
 
-    btn.classList.remove("yptc-loading");
+    function doCopy(btn) {
+      btn.classList.add("yptc-loading");
+      var text = scrapeTranscript();
 
-    if (text) {
-      navigator.clipboard
-        .writeText(text)
-        .then(
-          () => showFeedback(btn, "ok"),
-          () => fallbackCopy(btn, text)
-        );
-    } else {
-      showFeedback(btn, "fail");
+      if (text) {
+        finishCopy(btn, text);
+        return;
+      }
+
+      openTranscript().then(function (opened) {
+        if (!opened) { btn.classList.remove("yptc-loading"); fail(btn); return; }
+        var tries = 0;
+        var iv = setInterval(function () {
+          tries++;
+          text = scrapeTranscript();
+          if (text || tries >= 30) {
+            clearInterval(iv);
+            btn.classList.remove("yptc-loading");
+            if (text) {
+              finishCopy(btn, text);
+            } else {
+              fail(btn);
+            }
+          }
+        }, 300);
+      });
     }
-  }
 
-  function fallbackCopy(btn, text) {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.cssText = "position:fixed;left:-9999px";
-    document.body.appendChild(ta);
-    ta.select();
-    try {
-      document.execCommand("copy");
-      showFeedback(btn, "ok");
-    } catch {
-      showFeedback(btn, "fail");
-    }
-    document.body.removeChild(ta);
-  }
-
-  function showFeedback(btn, type) {
-    if (type === "ok") {
+    function finishCopy(btn, text) {
+      window.postMessage({ __yptc_copy: text }, "*");
       btn.classList.add("yptc-ok");
-      setTimeout(() => btn.classList.remove("yptc-ok"), 2000);
-    } else {
+      setTimeout(function () { btn.classList.remove("yptc-ok"); }, 2000);
+    }
+
+    function fail(btn) {
       btn.classList.add("yptc-fail");
       btn.title = "No transcript available";
-      setTimeout(() => {
+      setTimeout(function () {
         btn.classList.remove("yptc-fail");
         btn.title = "Copy transcript";
       }, 2000);
     }
-  }
 
-  function checkUrl() {
-    const url = location.href;
-    if (url !== lastUrl) {
-      lastUrl = url;
-      const old = document.getElementById(BUTTON_ID);
-      if (old) {
-        const shape = old.closest("yt-button-shape");
-        if (shape) shape.remove();
-        else old.remove();
-      }
-      if (url.includes("/watch")) {
-        setTimeout(addButton, 1500);
+    function checkUrl() {
+      var url = location.href;
+      if (url !== lastUrl) {
+        lastUrl = url;
+        var old = document.getElementById(BID);
+        if (old) {
+          var s = old.closest("yt-button-shape");
+          if (s) s.remove(); else old.remove();
+        }
+        if (url.includes("/watch")) {
+          setTimeout(addButton, 1500);
+        }
       }
     }
+
+    checkUrl();
+    new MutationObserver(checkUrl).observe(document.body, { childList: true, subtree: true });
   }
 
-  checkUrl();
-  new MutationObserver(checkUrl).observe(document.body, {
-    childList: true,
-    subtree: true,
+  window.addEventListener("message", function (e) {
+    if (e.source !== window) return;
+    if (e.data && e.data.__yptc_copy) {
+      navigator.clipboard.writeText(e.data.__yptc_copy).catch(function () {
+        var ta = document.createElement("textarea");
+        ta.value = e.data.__yptc_copy;
+        ta.style.cssText = "position:fixed;left:-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      });
+    }
   });
+
+  injectMainWorld();
 })();
