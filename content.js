@@ -39,9 +39,10 @@
       'ytd-menu-renderer yt-button-shape#button-shape button'
     );
     if (!moreBtn) return;
-    var rect = moreBtn.getBoundingClientRect();
-    btn.style.left = rect.left - 42 + "px";
-    btn.style.top = rect.top + "px";
+    var r = moreBtn.getBoundingClientRect();
+    var gap = 2;
+    btn.style.left = (r.left - 36 - gap) + "px";
+    btn.style.top = (r.top + (r.height - 36) / 2) + "px";
   }
 
   function openTranscript() {
@@ -173,6 +174,11 @@
     var btn = document.getElementById(BID);
     if (btn) positionBtn(btn);
   });
+
+  setInterval(function () {
+    var btn = document.getElementById(BID);
+    if (btn) positionBtn(btn);
+  }, 1000);
 
   checkUrl();
   new MutationObserver(checkUrl).observe(document.body, { childList: true, subtree: true });
