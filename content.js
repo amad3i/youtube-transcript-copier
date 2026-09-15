@@ -84,46 +84,58 @@
     return lines.length > 0 ? lines.join(" ") : null;
   }
 
-  function doCopy(btn) {
+  async function doCopy(btn) {
     btn.classList.add("yptc-loading");
 
-    var text = scrapeTranscript();
-    if (text) {
-      btn.classList.remove("yptc-loading");
-      finishCopy(btn, text);
-      return;
-    }
-
-    openTranscript().then(function (opened) {
-      if (!opened) { btn.classList.remove("yptc-loading"); fail(btn); return; }
-      var tries = 0;
-      var iv = setInterval(function () {
-        tries++;
-        text = scrapeTranscript();
-        if (text || tries >= 30) {
-          clearInterval(iv);
-          btn.classList.remove("yptc-loading");
-          if (text) finishCopy(btn, text);
-          else fail(btn);
+    try {
+      var text = scrapeTranscript();
+      if (!text) {
+        var opened = await openTranscript();
+        if (opened) {
+          for (var i = 0; i < 30; i++) {
+            await new Promise(function (r) { setTimeout(r, 300); });
+            text = scrapeTranscript();
+            if (text) break;
+          }
         }
-      }, 300);
-    });
+      }
+
+      if (text) finishCopy(btn, text);
+      else fail(btn);
+    } finally {
+      btn.classList.remove("yptc-loading");
+    }
   }
 
   function finishCopy(btn, text) {
-    navigator.clipboard.writeText(text).then(
-      function () { flash(btn, "ok"); },
-      function () {
-        var ta = document.createElement("textarea");
-        ta.value = text;
-        ta.style.cssText = "position:fixed;left:-9999px";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-        flash(btn, "ok");
-      }
-    );
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        function () { flash(btn, "ok"); },
+        function () { fallbackCopy(btn, text); }
+      );
+    } else {
+      fallbackCopy(btn, text);
+    }
+  }
+
+  function fallbackCopy(btn, text) {
+    var ok = false;
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.cssText =
+      "position:fixed;top:0;left:0;width:2px;height:2px;opacity:0.01;z-index:999999;";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+      ok = document.execCommand("copy");
+    } catch (e) {
+      ok = false;
+    }
+    document.body.removeChild(ta);
+    if (ok) flash(btn, "ok");
+    else flash(btn, "fail");
   }
 
   function fail(btn) {
