@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "YouTube Transcript Copier",
-  "version": "1.6.0",
+  "version": "1.8.0",
   "description": "Copy YouTube video transcripts with one click",
-  "permissions": ["activeTab"],
+  "permissions": ["activeTab", "offscreen", "clipboardWrite"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["*://www.youtube.com/watch*"],

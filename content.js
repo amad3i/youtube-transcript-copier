@@ -71,16 +71,34 @@
   }
 
   function scrapeTranscript() {
-    var segs = document.querySelectorAll("transcript-segment-view-model");
-    if (segs.length === 0) return null;
     var lines = [];
-    for (var i = 0; i < segs.length; i++) {
-      var t = segs[i].querySelector('span[role="text"]');
+    var scan = function (el) {
+      var t = el.querySelector('span[role="text"]');
       if (t) {
         var txt = t.textContent.trim();
         if (txt) lines.push(txt);
       }
+    };
+
+    var segs = document.querySelectorAll("transcript-segment-view-model");
+    for (var i = 0; i < segs.length; i++) scan(segs[i]);
+
+    if (lines.length === 0) {
+      var olds = document.querySelectorAll("ytd-transcript-segment-renderer");
+      for (var j = 0; j < olds.length; j++) scan(olds[j]);
     }
+
+    if (lines.length === 0) {
+      var container = document.querySelector("#segments-container");
+      if (container) {
+        var spans = container.querySelectorAll('span[role="text"]');
+        for (var k = 0; k < spans.length; k++) {
+          var t3 = spans[k].textContent.trim();
+          if (t3) lines.push(t3);
+        }
+      }
+    }
+
     return lines.length > 0 ? lines.join(" ") : null;
   }
 
@@ -108,14 +126,13 @@
   }
 
   function finishCopy(btn, text) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(
-        function () { flash(btn, "ok"); },
-        function () { fallbackCopy(btn, text); }
-      );
-    } else {
-      fallbackCopy(btn, text);
-    }
+    chrome.runtime.sendMessage({ type: "YTTC_COPY", text: text }, function (res) {
+      if (chrome.runtime.lastError || !res || !res.ok) {
+        fallbackCopy(btn, text);
+      } else {
+        flash(btn, "ok");
+      }
+    });
   }
 
   function fallbackCopy(btn, text) {
