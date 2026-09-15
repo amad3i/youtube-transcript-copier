@@ -1,22 +1,29 @@
 (function () {
-  var BID = "yptc-copy-btn";
+  var WATCH_ID = "yptc-copy-btn";
+  var CARD_CLS = "yptc-card-btn";
   var lastUrl = "";
+  var cardTimer = null;
+  var harvest = null;
 
-  function addButton() {
-    if (document.getElementById(BID)) return;
+  var SVG =
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>' +
+    '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>' +
+    "</svg>";
+
+  /* ---------- watch page button ---------- */
+
+  function addWatchButton() {
+    if (document.getElementById(WATCH_ID)) return;
 
     var sub = document.querySelector("ytd-subscribe-button-renderer");
     if (!sub) return;
 
     var btn = document.createElement("button");
-    btn.id = BID;
+    btn.id = WATCH_ID;
     btn.title = "Copy transcript";
     btn.setAttribute("aria-label", "Copy transcript");
-    btn.innerHTML =
-      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-      '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>' +
-      '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>' +
-      "</svg>";
+    btn.innerHTML = SVG;
 
     btn.addEventListener("click", function (e) {
       e.stopPropagation();
@@ -29,6 +36,112 @@
     wrap.appendChild(sub);
     wrap.appendChild(btn);
   }
+
+  function removeWatchButton() {
+    var old = document.getElementById(WATCH_ID);
+    if (!old) return;
+    var wrap = old.parentElement;
+    if (wrap && wrap.style.display === "inline-flex") {
+      var sub = wrap.querySelector("ytd-subscribe-button-renderer");
+      if (sub) wrap.parentElement.insertBefore(sub, wrap);
+      wrap.remove();
+    } else {
+      old.remove();
+    }
+  }
+
+  /* ---------- feed / search card buttons ---------- */
+
+  function cardUrl(card) {
+    var a = card.querySelector('a#thumbnail[href], a#video-title-link[href]');
+    if (!a) return null;
+    var href = a.getAttribute("href");
+    if (!href || href.indexOf("/watch") !== 0) return null;
+    return href.indexOf("http") === 0 ? href : "https://www.youtube.com" + href;
+  }
+
+  function onCardClick(btn, url) {
+    if (harvest) finishHarvest(false);
+
+    var iframe = document.createElement("iframe");
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.setAttribute("tabindex", "-1");
+    iframe.style.cssText =
+      "position:fixed;top:0;left:-10000px;width:1280px;height:900px;border:0;pointer-events:none;";
+
+    harvest = {
+      btn: btn,
+      iframe: iframe,
+      timer: setTimeout(function () { finishHarvest(false); }, 45000),
+    };
+
+    btn.classList.add("yptc-loading");
+
+    iframe.addEventListener("load", function () {
+      if (!harvest || harvest.iframe !== iframe) return;
+      try {
+        var host = iframe.contentWindow && iframe.contentWindow.location.hostname;
+        if (host && host.indexOf("consent") === 0) finishHarvest(false);
+      } catch (e) {}
+    });
+
+    document.body.appendChild(iframe);
+    var sep = url.indexOf("?") >= 0 ? "&" : "?";
+    iframe.src = url + sep + "ytic=2";
+  }
+
+  function finishHarvest(ok) {
+    if (!harvest) return;
+    var h = harvest;
+    harvest = null;
+    clearTimeout(h.timer);
+    if (h.iframe) h.iframe.remove();
+    var btn = h.btn;
+    btn.classList.remove("yptc-loading");
+    flash(btn, ok ? "ok" : "fail");
+  }
+
+  function addCardButtons() {
+    var cards = document.querySelectorAll(
+      "ytd-rich-item-renderer, ytd-video-renderer"
+    );
+    for (var i = 0; i < cards.length; i++) {
+      var card = cards[i];
+      if (card.querySelector("." + CARD_CLS)) continue;
+
+      var url = cardUrl(card);
+      if (!url) continue;
+
+      var menu = card.querySelector("ytd-menu-renderer");
+      if (!menu) continue;
+
+      var btn = document.createElement("button");
+      btn.className = CARD_CLS;
+      btn.title = "Copy transcript";
+      btn.setAttribute("aria-label", "Copy transcript");
+      btn.innerHTML = SVG;
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (this.classList.contains("yptc-loading")) return;
+        onCardClick(this, url);
+      });
+
+      var dots = menu.querySelector("button, tp-yt-paper-icon-button");
+      if (dots) menu.insertBefore(btn, dots);
+      else menu.appendChild(btn);
+    }
+  }
+
+  function scheduleCardScan() {
+    if (cardTimer) return;
+    cardTimer = setTimeout(function () {
+      cardTimer = null;
+      addCardButtons();
+    }, 500);
+  }
+
+  /* ---------- transcript ---------- */
 
   function openTranscript() {
     return new Promise(function (res) {
@@ -110,40 +223,26 @@
     return out.length > 0 ? out.join(" ") : null;
   }
 
-  async function doCopy(btn) {
-    btn.classList.add("yptc-loading");
-
-    try {
-      var text = scrapeTranscript();
-      if (!text) {
-        var opened = await openTranscript();
-        if (opened) {
-          for (var i = 0; i < 30; i++) {
-            await new Promise(function (r) { setTimeout(r, 300); });
-            text = scrapeTranscript();
-            if (text) break;
+  function copyText(text) {
+    return new Promise(function (resolve) {
+      chrome.runtime.sendMessage({ type: "YTTC_COPY", text: text }, function (res) {
+        if (chrome.runtime.lastError || !res || !res.ok) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(
+              function () { resolve(true); },
+              function () { resolve(fallbackCopy(text)); }
+            );
+          } else {
+            resolve(fallbackCopy(text));
           }
+        } else {
+          resolve(true);
         }
-      }
-
-      if (text) finishCopy(btn, text);
-      else fail(btn);
-    } finally {
-      btn.classList.remove("yptc-loading");
-    }
-  }
-
-  function finishCopy(btn, text) {
-    chrome.runtime.sendMessage({ type: "YTTC_COPY", text: text }, function (res) {
-      if (chrome.runtime.lastError || !res || !res.ok) {
-        fallbackCopy(btn, text);
-      } else {
-        flash(btn, "ok");
-      }
+      });
     });
   }
 
-  function fallbackCopy(btn, text) {
+  function fallbackCopy(text) {
     var ok = false;
     var ta = document.createElement("textarea");
     ta.value = text;
@@ -159,41 +258,91 @@
       ok = false;
     }
     document.body.removeChild(ta);
-    if (ok) flash(btn, "ok");
-    else flash(btn, "fail");
+    return ok;
   }
 
-  function fail(btn) {
-    flash(btn, "fail");
-    btn.title = "No transcript available";
-    setTimeout(function () { btn.title = "Copy transcript"; }, 2000);
+  async function doCopy(btn) {
+    if (btn) btn.classList.add("yptc-loading");
+
+    try {
+      var text = scrapeTranscript();
+      if (!text) {
+        var opened = await openTranscript();
+        if (opened) {
+          for (var i = 0; i < 30; i++) {
+            await new Promise(function (r) { setTimeout(r, 300); });
+            text = scrapeTranscript();
+            if (text) break;
+          }
+        }
+      }
+
+      if (text) {
+        var ok = await copyText(text);
+        if (btn) flash(btn, ok ? "ok" : "fail");
+        return ok;
+      }
+
+      if (btn) {
+        flash(btn, "fail");
+        setTitle(btn, "No transcript available");
+      }
+      return false;
+    } finally {
+      if (btn) btn.classList.remove("yptc-loading");
+    }
   }
 
-  function flash(btn, type) {
-    btn.classList.add(type === "ok" ? "yptc-ok" : "yptc-fail");
+  function setTitle(btn, text) {
+    var t = btn.title;
+    btn.title = text;
+    setTimeout(function () { btn.title = t; }, 2000);
+  }
+
+  function flash(el, type) {
+    el.classList.add(type === "ok" ? "yptc-ok" : "yptc-fail");
     setTimeout(function () {
-      btn.classList.remove("yptc-ok", "yptc-fail");
+      el.classList.remove("yptc-ok", "yptc-fail");
     }, 2000);
   }
+
+  /* ---------- harvest iframe ---------- */
+
+  function maybeAutoHarvest() {
+    if (location.search.indexOf("ytic=2") === -1) return;
+    if (window.self === window.top) return;
+
+    setTimeout(function () {
+      doCopy(null).then(function (ok) {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: "YTTC_HARVEST_DONE", ok: !!ok }, "*");
+        }
+      });
+    }, 2500);
+  }
+
+  window.addEventListener("message", function (e) {
+    if (!e.data || e.data.type !== "YTTC_HARVEST_DONE") return;
+    if (!harvest || !harvest.iframe) return;
+    if (e.source !== harvest.iframe.contentWindow) return;
+    finishHarvest(!!e.data.ok);
+  });
+
+  /* ---------- navigation ---------- */
 
   function checkUrl() {
     var url = location.href;
     if (url !== lastUrl) {
       lastUrl = url;
-      var old = document.getElementById(BID);
-      if (old) {
-        var wrap = old.parentElement;
-        if (wrap && wrap.style.display === "inline-flex") {
-          var sub = wrap.querySelector("ytd-subscribe-button-renderer");
-          if (sub) wrap.parentElement.insertBefore(sub, wrap);
-          wrap.remove();
-        } else {
-          old.remove();
-        }
+      removeWatchButton();
+      if (url.indexOf("/watch") >= 0) {
+        setTimeout(addWatchButton, 2000);
+        maybeAutoHarvest();
+      } else {
+        scheduleCardScan();
       }
-      if (url.includes("/watch")) {
-        setTimeout(addButton, 2000);
-      }
+    } else if (url.indexOf("/watch") < 0) {
+      scheduleCardScan();
     }
   }
 
