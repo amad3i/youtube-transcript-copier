@@ -140,26 +140,41 @@
     return item;
   }
 
-  var pendingCard = null;
+  function visibleSheet() {
+    var sheets = document.querySelectorAll("yt-sheet-view-model");
+    for (var i = 0; i < sheets.length; i++) {
+      var s = sheets[i];
+      if (!s.isConnected) continue;
+      if (s.hasAttribute("hidden")) continue;
+      var r = s.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) return s;
+    }
+    return null;
+  }
 
-  function injectIntoCard(card) {
-    if (card.querySelector("[data-yptc-menu]")) return;
-
-    var url = cardUrl(card);
-    if (!url) return;
-
-    var lb = card.querySelector("yt-list-view-model");
+  function injectIntoSheet(sheet, url) {
+    var lb = sheet.querySelector("yt-list-view-model");
     if (!lb) return;
+
+    if (lb.querySelector("yt-list-item-view-model[data-yptc-menu]")) return;
 
     lb.insertBefore(buildItem(url), lb.firstElementChild);
   }
 
+  var pendingCard = null;
+
   function injectCardMenu(card) {
+    var url = cardUrl(card);
+    if (!url) return;
+
+    pendingCard = card;
+
     var tries = 0;
     var attempt = function () {
       if (pendingCard !== card) return;
-      if (tries++ > 20) return;
-      injectIntoCard(card);
+      if (tries++ > 40) return;
+      var sheet = visibleSheet();
+      if (sheet) injectIntoSheet(sheet, url);
       setTimeout(attempt, 250);
     };
     attempt();
@@ -168,15 +183,13 @@
   document.addEventListener(
     "click",
     function (e) {
-      var card = e.target.closest(CARD_SEL);
+      var t = e.target;
+      var menu = t.closest
+        ? t.closest("ytd-menu-renderer, tp-yt-paper-menu-button")
+        : null;
+      if (!menu) return;
+      var card = menu.closest(CARD_SEL);
       if (!card) return;
-      var trg = e.target.closest(
-        "ytd-menu-renderer button, ytd-menu-renderer tp-yt-paper-icon-button," +
-        'button[aria-label="Action menu"], tp-yt-paper-icon-button'
-      );
-      if (!trg) return;
-
-      pendingCard = card;
       injectCardMenu(card);
     },
     true
