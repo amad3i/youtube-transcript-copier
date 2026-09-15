@@ -1,7 +1,6 @@
 (function () {
   var WATCH_ID = "yptc-copy-btn";
   var lastUrl = "";
-  var cardTimer = null;
   var harvest = null;
 
   var SVG =
@@ -48,6 +47,9 @@
       old.remove();
     }
   }
+
+  var CARD_SEL =
+    "ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer";
 
   /* ---------- feed / search: three-dot menu item ---------- */
 
@@ -102,40 +104,83 @@
     toast(ok ? "Transcript copied" : "No transcript", ok);
   }
 
-  function injectMenuItems() {
-    var cards = document.querySelectorAll(
-      "ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer"
-    );
-    for (var i = 0; i < cards.length; i++) {
-      var card = cards[i];
-      var lb = card.querySelector("tp-yt-paper-listbox");
-      if (!lb) continue;
-      if (lb.querySelector("[data-yptc-menu]")) continue;
+  function buildItem(url) {
+    var item = document.createElement("yt-list-item-view-model");
+    item.setAttribute("data-yptc-menu", "1");
+    item.className = "ytListItemViewModelHost";
+    item.setAttribute("role", "presentation");
+    item.innerHTML =
+      '<div class="ytListItemViewModelLayoutWrapper ytListItemViewModelContainer ytListItemViewModelCompact ytListItemViewModelTappable ytListItemViewModelInPopup ytListItemViewModelNoTrailingText">' +
+        '<div class="ytListItemViewModelMainContainer">' +
+          '<div aria-hidden="true" class="ytListItemViewModelImageContainer ytListItemViewModelLeading">' +
+            '<span class="ytIconWrapperHost ytListItemViewModelAccessory ytListItemViewModelImage" role="img" aria-hidden="true">' +
+              '<span class="yt-icon-shape ytSpecIconShapeHost">' +
+                '<div style="width:100%;height:100%;display:block;fill:currentcolor;">' +
+                  '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events:none;display:inherit;width:100%;height:100%;">' +
+                    '<path d="M5 15h1.5A1.5 1.5 0 0 1 8 16.5V22H2v-5.5A1.5 1.5 0 0 1 3.5 15H5Zm0 2v3h1v-3H5Z"/>' +
+                    '<path d="M19 2H9a2 2 0 0 0-2 2v13h12V2Z"/>' +
+                    '<path d="M6 19h13a2 2 0 0 0 2-2V5h1v12a3 3 0 0 1-3 3H6v-1Z"/>' +
+                  '</svg>' +
+                '</div>' +
+              '</span>' +
+            '</span>' +
+          '</div>' +
+          '<button class="ytButtonOrAnchorHost ytButtonOrAnchorButton ytListItemViewModelButtonOrAnchor ytListItemViewModelTextWrapper" role="menuitem">' +
+            '<div><div class="ytListItemViewModelTitleWrapper"><span class="ytAttributedStringHost ytListItemViewModelTitle ytAttributedStringWhiteSpacePreWrap" role="text">Copy transcript</span></div></div>' +
+          '</button>' +
+        '</div>' +
+      '</div>';
 
-      var url = cardUrl(card);
-      if (!url) continue;
+    item.querySelector("button").addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      onCardClick(url, null);
+    });
 
-      var item = document.createElement("ytd-menu-service-item-renderer");
-      item.setAttribute("data-yptc-menu", "1");
-      item.style.cursor = "pointer";
-      item.innerHTML = "<yt-formatted-string>Copy transcript</yt-formatted-string>";
-      item.addEventListener("click", function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        onCardClick(url, null);
-      });
-
-      lb.insertBefore(item, lb.lastElementChild);
-    }
+    return item;
   }
 
-  function scheduleMenuScan() {
-    if (cardTimer) return;
-    cardTimer = setTimeout(function () {
-      cardTimer = null;
-      injectMenuItems();
-    }, 200);
+  var pendingCard = null;
+
+  function injectIntoCard(card) {
+    if (card.querySelector("[data-yptc-menu]")) return;
+
+    var url = cardUrl(card);
+    if (!url) return;
+
+    var lb = card.querySelector("yt-list-view-model");
+    if (!lb) return;
+
+    lb.insertBefore(buildItem(url), lb.firstElementChild);
   }
+
+  function injectCardMenu(card) {
+    var tries = 0;
+    var attempt = function () {
+      if (pendingCard !== card) return;
+      if (tries++ > 20) return;
+      injectIntoCard(card);
+      setTimeout(attempt, 250);
+    };
+    attempt();
+  }
+
+  document.addEventListener(
+    "click",
+    function (e) {
+      var card = e.target.closest(CARD_SEL);
+      if (!card) return;
+      var trg = e.target.closest(
+        "ytd-menu-renderer button, ytd-menu-renderer tp-yt-paper-icon-button," +
+        'button[aria-label="Action menu"], tp-yt-paper-icon-button'
+      );
+      if (!trg) return;
+
+      pendingCard = card;
+      injectCardMenu(card);
+    },
+    true
+  );
 
   /* ---------- transcript ---------- */
 
@@ -349,11 +394,7 @@
       if (url.indexOf("/watch") >= 0) {
         setTimeout(addWatchButton, 2000);
         maybeAutoHarvest();
-      } else {
-        scheduleMenuScan();
       }
-    } else if (url.indexOf("/watch") < 0) {
-      scheduleMenuScan();
     }
   }
 

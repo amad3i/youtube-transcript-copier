@@ -45,13 +45,3 @@
 #yptc-copy-btn.yptc-fail {
   background: rgba(220, 38, 38, 0.9) !important;
 }
-
-ytd-menu-service-item-renderer[data-yptc-menu] {
-  cursor: pointer;
-}
-
-ytd-menu-service-item-renderer[data-yptc-menu] > yt-formatted-string {
-  display: block;
-  padding: 0 16px;
-  line-height: 40px;
-}
