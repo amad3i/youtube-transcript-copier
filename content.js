@@ -1,6 +1,5 @@
 (function () {
   var WATCH_ID = "yptc-copy-btn";
-  var CARD_CLS = "yptc-card-btn";
   var lastUrl = "";
   var cardTimer = null;
   var harvest = null;
@@ -50,7 +49,7 @@
     }
   }
 
-  /* ---------- feed / search card buttons ---------- */
+  /* ---------- feed / search: three-dot menu item ---------- */
 
   function cardUrl(card) {
     var a = card.querySelector('a#thumbnail[href], a#video-title-link[href]');
@@ -60,7 +59,7 @@
     return href.indexOf("http") === 0 ? href : "https://www.youtube.com" + href;
   }
 
-  function onCardClick(btn, url) {
+  function onCardClick(url, el) {
     if (harvest) finishHarvest(false);
 
     var iframe = document.createElement("iframe");
@@ -70,12 +69,12 @@
       "position:fixed;top:0;left:-10000px;width:1280px;height:900px;border:0;pointer-events:none;";
 
     harvest = {
-      btn: btn,
+      el: el || null,
       iframe: iframe,
       timer: setTimeout(function () { finishHarvest(false); }, 45000),
     };
 
-    btn.classList.add("yptc-loading");
+    if (el) el.classList.add("yptc-loading");
 
     iframe.addEventListener("load", function () {
       if (!harvest || harvest.iframe !== iframe) return;
@@ -96,49 +95,46 @@
     harvest = null;
     clearTimeout(h.timer);
     if (h.iframe) h.iframe.remove();
-    var btn = h.btn;
-    btn.classList.remove("yptc-loading");
-    flash(btn, ok ? "ok" : "fail");
+    if (h.el) {
+      h.el.classList.remove("yptc-loading");
+      flash(h.el, ok ? "ok" : "fail");
+    }
+    toast(ok ? "Transcript copied" : "No transcript", ok);
   }
 
-  function addCardButtons() {
+  function injectMenuItems() {
     var cards = document.querySelectorAll(
-      "ytd-rich-item-renderer, ytd-video-renderer"
+      "ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer"
     );
     for (var i = 0; i < cards.length; i++) {
       var card = cards[i];
-      if (card.querySelector("." + CARD_CLS)) continue;
+      var lb = card.querySelector("tp-yt-paper-listbox");
+      if (!lb) continue;
+      if (lb.querySelector("[data-yptc-menu]")) continue;
 
       var url = cardUrl(card);
       if (!url) continue;
 
-      var menu = card.querySelector("ytd-menu-renderer");
-      if (!menu) continue;
-
-      var btn = document.createElement("button");
-      btn.className = CARD_CLS;
-      btn.title = "Copy transcript";
-      btn.setAttribute("aria-label", "Copy transcript");
-      btn.innerHTML = SVG;
-      btn.addEventListener("click", function (e) {
+      var item = document.createElement("ytd-menu-service-item-renderer");
+      item.setAttribute("data-yptc-menu", "1");
+      item.style.cursor = "pointer";
+      item.innerHTML = "<yt-formatted-string>Copy transcript</yt-formatted-string>";
+      item.addEventListener("click", function (e) {
         e.preventDefault();
         e.stopPropagation();
-        if (this.classList.contains("yptc-loading")) return;
-        onCardClick(this, url);
+        onCardClick(url, null);
       });
 
-      var dots = menu.querySelector("button, tp-yt-paper-icon-button");
-      if (dots) menu.insertBefore(btn, dots);
-      else menu.appendChild(btn);
+      lb.insertBefore(item, lb.lastElementChild);
     }
   }
 
-  function scheduleCardScan() {
+  function scheduleMenuScan() {
     if (cardTimer) return;
     cardTimer = setTimeout(function () {
       cardTimer = null;
-      addCardButtons();
-    }, 500);
+      injectMenuItems();
+    }, 200);
   }
 
   /* ---------- transcript ---------- */
@@ -306,6 +302,21 @@
     }, 2000);
   }
 
+  function toast(text, ok) {
+    var t = document.createElement("div");
+    t.textContent = text;
+    t.style.cssText =
+      "position:fixed;left:50%;bottom:80px;transform:translateX(-50%);" +
+      "z-index:9999999;padding:10px 16px;border-radius:8px;" +
+      "font:500 14px/1.4 Roboto,Noto Sans,sans-serif;color:#fff;" +
+      "background:" + (ok ? "rgba(36,161,72,0.96)" : "rgba(220,38,38,0.96)") + ";" +
+      "box-shadow:0 2px 12px rgba(0,0,0,0.4);pointer-events:none;";
+    document.body.appendChild(t);
+    setTimeout(function () {
+      if (t.parentNode) t.parentNode.removeChild(t);
+    }, 2200);
+  }
+
   /* ---------- harvest iframe ---------- */
 
   function maybeAutoHarvest() {
@@ -339,10 +350,10 @@
         setTimeout(addWatchButton, 2000);
         maybeAutoHarvest();
       } else {
-        scheduleCardScan();
+        scheduleMenuScan();
       }
     } else if (url.indexOf("/watch") < 0) {
-      scheduleCardScan();
+      scheduleMenuScan();
     }
   }
 
