@@ -111,6 +111,7 @@
     item.setAttribute("data-yptc-menu", "1");
     item.className = "ytListItemViewModelHost";
     item.setAttribute("role", "presentation");
+    item._yptcUrl = url;
     item.innerHTML =
       '<div class="ytListItemViewModelLayoutWrapper ytListItemViewModelContainer ytListItemViewModelCompact ytListItemViewModelTappable ytListItemViewModelInPopup ytListItemViewModelNoTrailingText">' +
         '<div class="ytListItemViewModelMainContainer">' +
@@ -118,10 +119,9 @@
             '<span class="ytIconWrapperHost ytListItemViewModelAccessory ytListItemViewModelImage" role="img" aria-hidden="true">' +
               '<span class="yt-icon-shape ytSpecIconShapeHost">' +
                 '<div style="width:100%;height:100%;display:block;fill:currentcolor;">' +
-                  '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events:none;display:inherit;width:100%;height:100%;">' +
-                    '<path d="M5 15h1.5A1.5 1.5 0 0 1 8 16.5V22H2v-5.5A1.5 1.5 0 0 1 3.5 15H5Zm0 2v3h1v-3H5Z"/>' +
-                    '<path d="M19 2H9a2 2 0 0 0-2 2v13h12V2Z"/>' +
-                    '<path d="M6 19h13a2 2 0 0 0 2-2V5h1v12a3 3 0 0 1-3 3H6v-1Z"/>' +
+                  '<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events:none;display:inherit;width:100%;height:100%;" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                    '<rect x="9" y="9" width="12" height="12" rx="2" ry="2"/>' +
+                    '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>' +
                   '</svg>' +
                 '</div>' +
               '</span>' +
@@ -136,29 +136,43 @@
     item.querySelector("button").addEventListener("click", function (e) {
       e.preventDefault();
       e.stopPropagation();
-      onCardClick(url, null);
+      closeMenu();
+      onCardClick(item._yptcUrl, null);
     });
 
     return item;
   }
 
-  function visibleSheet() {
+  function closeMenu() {
+    try {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })
+      );
+    } catch (e) {}
+  }
+
+  function visibleSheets() {
+    var out = [];
     var sheets = document.querySelectorAll("yt-sheet-view-model");
     for (var i = 0; i < sheets.length; i++) {
       var s = sheets[i];
       if (!s.isConnected) continue;
       if (s.hasAttribute("hidden")) continue;
       var r = s.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) return s;
+      if (r.width > 0 && r.height > 0) out.push(s);
     }
-    return null;
+    return out;
   }
 
   function injectIntoSheet(sheet, url) {
     var lb = sheet.querySelector("yt-list-view-model");
     if (!lb) return;
 
-    if (lb.querySelector("yt-list-item-view-model[data-yptc-menu]")) return;
+    var marker = lb.querySelector("yt-list-item-view-model[data-yptc-menu]");
+    if (marker) {
+      marker._yptcUrl = url;
+      return;
+    }
 
     lb.insertBefore(buildItem(url), lb.firstElementChild);
   }
@@ -175,8 +189,10 @@
     var attempt = function () {
       if (pendingCard !== card) return;
       if (tries++ > 40) return;
-      var sheet = visibleSheet();
-      if (sheet) injectIntoSheet(sheet, url);
+      var sheets = visibleSheets();
+      for (var i = 0; i < sheets.length; i++) {
+        injectIntoSheet(sheets[i], url);
+      }
       setTimeout(attempt, 250);
     };
     attempt();
