@@ -71,35 +71,43 @@
   }
 
   function scrapeTranscript() {
-    var lines = [];
-    var scan = function (el) {
-      var t = el.querySelector('span[role="text"]');
-      if (t) {
-        var txt = t.textContent.trim();
-        if (txt) lines.push(txt);
-      }
+    var root =
+      document.querySelector("#segments-container") ||
+      document.querySelector("ytd-transcript-segment-list-renderer") ||
+      document.querySelector("ytd-transcript-renderer") ||
+      document.body;
+
+    var out = [];
+    var push = function (el) {
+      if (!el) return;
+      var t = el.textContent.trim();
+      if (t && t !== out[out.length - 1]) out.push(t);
     };
 
-    var segs = document.querySelectorAll("transcript-segment-view-model");
-    for (var i = 0; i < segs.length; i++) scan(segs[i]);
+    var blocks = root.querySelectorAll(
+      "transcript-segment-view-model," +
+        "ytd-transcript-segment-renderer," +
+        "transcript-section-header," +
+        "transcript-section-header-renderer," +
+        "ytd-transcript-section-header-renderer"
+    );
 
-    if (lines.length === 0) {
-      var olds = document.querySelectorAll("ytd-transcript-segment-renderer");
-      for (var j = 0; j < olds.length; j++) scan(olds[j]);
-    }
-
-    if (lines.length === 0) {
-      var container = document.querySelector("#segments-container");
-      if (container) {
-        var spans = container.querySelectorAll('span[role="text"]');
-        for (var k = 0; k < spans.length; k++) {
-          var t3 = spans[k].textContent.trim();
-          if (t3) lines.push(t3);
-        }
+    for (var i = 0; i < blocks.length; i++) {
+      var el = blocks[i];
+      if (
+        el.tagName === "transcript-segment-view-model" ||
+        el.tagName === "ytd-transcript-segment-renderer"
+      ) {
+        var s = el.querySelector('span[role="text"]') ||
+                el.querySelector(".segment-text");
+        push(s);
+      } else {
+        var title = el.querySelector('span[role="text"]');
+        push(title || el);
       }
     }
 
-    return lines.length > 0 ? lines.join(" ") : null;
+    return out.length > 0 ? out.join(" ") : null;
   }
 
   async function doCopy(btn) {
