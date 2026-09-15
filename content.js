@@ -49,12 +49,14 @@
   }
 
   var CARD_SEL =
-    "ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer";
+    "yt-lockup-view-model, ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer";
 
   /* ---------- feed / search: three-dot menu item ---------- */
 
   function cardUrl(card) {
-    var a = card.querySelector('a#thumbnail[href], a#video-title-link[href]');
+    var a = card.querySelector(
+      'a[href*="/watch?v="], a#thumbnail[href], a#video-title-link[href]'
+    );
     if (!a) return null;
     var href = a.getAttribute("href");
     if (!href || href.indexOf("/watch") !== 0) return null;
@@ -184,12 +186,19 @@
     "click",
     function (e) {
       var t = e.target;
-      var menu = t.closest
-        ? t.closest("ytd-menu-renderer, tp-yt-paper-menu-button")
-        : null;
-      if (!menu) return;
-      var card = menu.closest(CARD_SEL);
+      if (!t || !t.closest) return;
+
+      var menuBtn = t.closest(
+        'button[aria-label="More actions"], .ytLockupMetadataViewModelMenuButton'
+      );
+      var legacyMenu = menuBtn
+        ? null
+        : t.closest("ytd-menu-renderer, tp-yt-paper-menu-button");
+      if (!menuBtn && !legacyMenu) return;
+
+      var card = (menuBtn || legacyMenu).closest(CARD_SEL);
       if (!card) return;
+
       injectCardMenu(card);
     },
     true
